@@ -1,0 +1,11 @@
+[package]
+name = "cas"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = {git = "https://github.com/bevyengine/bevy", rev = "9e450f2827bdaa88257ca3024dd53ddf262925a9"}
+bytemuck = { version = "1.8.0", features = ["derive"] }
+bevy_egui = { path = "bevy_egui" }

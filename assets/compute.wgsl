@@ -1,0 +1,131 @@
+[[group(0), binding(0)]]
+var r_cells: texture_storage_3d<r8uint, read_write>;
+fn get(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
+    let value: vec4<u32> = textureLoad(r_cells, pos + vec3<i32>(offset_x, offset_y, offset_z));
+    return i32(value.x);
+}
+
+struct Rule {
+    size: u32;
+    spawn_chance: f32;
+    survival: u32;
+    birth: u32;
+    states: u32;
+    neighbor_mode: u32;
+    color_mode: u32;
+    color0: vec4<f32>;
+    color1: vec4<f32>;
+};
+[[group(0), binding(1)]]
+var<uniform> r_rule: Rule;
+
+fn is_alive(value: i32) -> i32 {
+    return value / i32(r_rule.states);
+}
+
+fn should_survive(num_neighbours: i32) -> bool {
+    return ((r_rule.survival >> u32(num_neighbours)) & u32(1)) != u32(0);
+}
+
+fn should_birth(num_neighbours: i32) -> bool {
+    return ((r_rule.birth >> u32(num_neighbours)) & u32(1)) != u32(0);
+}
+
+fn count_alive(pos: vec3<i32>) -> i32 {
+    switch (r_rule.neighbor_mode) {
+        case 0: {
+            return is_alive(get(pos, -1, -1, -1)) + 
+                   is_alive(get(pos, -1, -1,  0)) + 
+                   is_alive(get(pos, -1, -1,  1)) + 
+                   is_alive(get(pos, -1,  0, -1)) + 
+                   is_alive(get(pos, -1,  0,  0)) + 
+                   is_alive(get(pos, -1,  0,  1)) + 
+                   is_alive(get(pos, -1,  1, -1)) + 
+                   is_alive(get(pos, -1,  1,  0)) + 
+                   is_alive(get(pos, -1,  1,  1)) + 
+       
+                   is_alive(get(pos,  0, -1, -1)) + 
+                   is_alive(get(pos,  0, -1,  0)) + 
+                   is_alive(get(pos,  0, -1,  1)) + 
+                   is_alive(get(pos,  0,  0, -1)) + 
+                   //is_alive(get(pos,  0,  0,  0)) + Don't count yourself
+                   is_alive(get(pos,  0,  0,  1)) + 
+                   is_alive(get(pos,  0,  1, -1)) + 
+                   is_alive(get(pos,  0,  1,  0)) + 
+                   is_alive(get(pos,  0,  1,  1)) + 
+       
+                   is_alive(get(pos,  1, -1, -1)) + 
+                   is_alive(get(pos,  1, -1,  0)) + 
+                   is_alive(get(pos,  1, -1,  1)) + 
+                   is_alive(get(pos,  1,  0, -1)) + 
+                   is_alive(get(pos,  1,  0,  0)) + 
+                   is_alive(get(pos,  1,  0,  1)) + 
+                   is_alive(get(pos,  1,  1, -1)) + 
+                   is_alive(get(pos,  1,  1,  0)) + 
+                   is_alive(get(pos,  1,  1,  1));
+        }
+        case 1: {
+            return is_alive(get(pos,  0,  0, -1)) + 
+                   is_alive(get(pos,  0,  0,  1)) + 
+                   is_alive(get(pos,  0, -1,  0)) + 
+                   is_alive(get(pos,  0,  1,  0)) + 
+                   is_alive(get(pos, -1,  0,  0)) + 
+                   is_alive(get(pos,  1,  0,  0));
+        }
+        default: {
+            return 0;
+        }
+    }
+}
+
+fn hash(value: u32) -> u32 {
+    var state = value;
+    state = state ^ 2747636419u;
+    state = state * 2654435769u;
+    state = state ^ state >> 16u;
+    state = state * 2654435769u;
+    state = state ^ state >> 16u;
+    state = state * 2654435769u;
+    return state;
+}
+
+fn random_float(value: u32) -> f32 {
+    return f32(hash(value)) / 4294967295.0;
+}
+
+[[stage(compute), workgroup_size(8, 8, 8)]]
+fn init([[builtin(global_invocation_id)]] invocation_id: vec3<u32>) {
+    let pos = vec3<i32>(invocation_id);
+    let pos_f32 = vec3<f32>(pos);
+    
+    let random_number = random_float(invocation_id.z * r_rule.size * r_rule.size + invocation_id.y * r_rule.size + invocation_id.x);
+    let alive = random_number > r_rule.spawn_chance;
+    
+    textureStore(r_cells, pos, vec4<u32>(u32(alive) * u32(r_rule.states)));
+}
+
+[[stage(compute), workgroup_size(8, 8, 8)]]
+fn update([[builtin(global_invocation_id)]] invocation_id: vec3<u32>) {
+    let pos = vec3<i32>(invocation_id);
+    var cur = get(pos, 0, 0, 0);
+
+    let alive = count_alive(pos);
+
+    if (is_alive(cur) == 1) {
+        if (!should_survive(alive)) {
+            cur = cur - 1;
+        }
+    } else if (cur == 0) {
+        if (should_birth(alive)) {
+            cur = i32(r_rule.states);
+        }
+    } else {
+        cur = cur - 1;
+    }
+
+    let alive = count_alive(pos);
+
+    let res = u32(cur);
+    storageBarrier();
+    textureStore(r_cells, pos, vec4<u32>(res));
+}
