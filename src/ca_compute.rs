@@ -102,7 +102,6 @@ fn queue_bind_group(
                     },
                     BindGroupEntry {
                         binding: 1,
-                        // Safe to unwrap because this function is always called after extract_rule
                         resource: rule.as_entire_binding(),
                     },
                 ],

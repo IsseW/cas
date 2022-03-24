@@ -24,6 +24,7 @@ struct State {
     survival: String,
     birth: String,
     size: u32,
+    fps: f32,
 }
 
 fn egui_system(
@@ -32,6 +33,7 @@ fn egui_system(
     update_time: Option<ResMut<UpdateTime>>,
     reinit: Option<ResMut<ReInit>>,
     movement: Option<ResMut<MovementSettings>>,
+    time: Res<Time>,
     mut state: Local<State>,
 ) {
     egui::SidePanel::new(Side::Left, "settings").show(ctx.ctx_mut(), |ui| {
@@ -185,7 +187,10 @@ fn egui_system(
         if let Some(mut update_time) = update_time {
             ui.heading("Misc");
             ui.label("Update time");
-            ui.add(egui::Slider::new(&mut update_time.0, 0.01..=1.0));
+            ui.add(egui::Slider::new(&mut update_time.0, 0.0..=5.0).logarithmic(true));
+            if update_time.0 == 5.0 {
+                update_time.0 = f64::INFINITY;
+            }
             ui.end_row();
         }
         if let Some(mut movement) = movement {
@@ -201,5 +206,12 @@ fn egui_system(
             movement.sensitivity = sensitivity * START_SENSITIVITY;
             ui.end_row();
         }
+
+        ui.heading("Info");
+        const SMOOTHING: f32 = 0.9;
+        if time.delta_seconds() > 0.0 {
+            state.fps = state.fps * SMOOTHING + (1.0 - SMOOTHING) * 1.0 / time.delta_seconds();
+        }
+        ui.label(format!("FPS: {}", state.fps as u32));
     });
 }
