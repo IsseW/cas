@@ -20,12 +20,14 @@ let EPSILON = 0.0001;
 [[stage(vertex)]]
 fn vertex(
     [[location(0)]] position: vec3<f32>,
+    [[location(1)]] normal: vec3<f32>,
 ) -> VertexOutput {
     let world_position = mesh.model * vec4<f32>(position, 1.0);
     let cam_pos = (mesh.inverse_transpose_model * vec4<f32>(view.world_position, 1.0)).xyz;
     var out: VertexOutput;
-    
-    if (-1.0 < cam_pos.x && cam_pos.x < 1.0 && -1.0 < cam_pos.y && cam_pos.y < 1.0 && -1.0 < cam_pos.z && cam_pos.z < 1.0) {
+
+    let d = dot(normal, cam_pos - position);
+    if (d < 0.0) {
         out.pos = (cam_pos + 1.0) / 2.0;
     } else {
         out.pos = (position + 1.0) / 2.0;

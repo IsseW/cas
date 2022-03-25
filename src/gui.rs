@@ -8,7 +8,7 @@ use crate::{
     ca_compute::{ReInit, UpdateTime},
     fly_cam::MovementSettings,
     rule::{ColorMode, ColorModeKind, NeighborMode, Rule, Value},
-    START_SENSITIVITY, START_SPEED,
+    Meshes, START_SENSITIVITY, START_SPEED,
 };
 
 pub struct GuiPlugin;
@@ -33,6 +33,7 @@ fn egui_system(
     update_time: Option<ResMut<UpdateTime>>,
     reinit: Option<ResMut<ReInit>>,
     movement: Option<ResMut<MovementSettings>>,
+    meshes: Option<ResMut<Meshes>>,
     time: Res<Time>,
     mut state: Local<State>,
 ) {
@@ -184,14 +185,25 @@ fn egui_system(
                 }
             }
         }
+
+        ui.heading("Misc");
         if let Some(mut update_time) = update_time {
-            ui.heading("Misc");
             ui.label("Update time");
             ui.add(egui::Slider::new(&mut update_time.0, 0.0..=5.0).logarithmic(true));
             if update_time.0 == 5.0 {
                 update_time.0 = f64::INFINITY;
             }
             ui.end_row();
+        }
+        if let Some(mut meshes) = meshes {
+            egui::ComboBox::from_label("Shape")
+                .selected_text(meshes.meshes[meshes.current].0)
+                .show_ui(ui, |ui| {
+                    for i in 0..meshes.meshes.len() {
+                        let s = meshes.meshes[i].0;
+                        ui.selectable_value(&mut meshes.current, i, s);
+                    }
+                });
         }
         if let Some(mut movement) = movement {
             ui.heading("Movement");

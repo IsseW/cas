@@ -37,10 +37,16 @@ fn main() {
         .add_plugin(RTMatPlugin)
         .add_plugin(GuiPlugin)
         .add_system(update_size)
+        .add_system(update_shape)
         .run();
 }
 
 struct CurrentSize(u32);
+
+struct Meshes {
+    meshes: Vec<(&'static str, Handle<Mesh>)>,
+    current: usize,
+}
 
 fn setup(
     mut commands: Commands,
@@ -63,10 +69,34 @@ fn setup(
     );
     image.texture_descriptor.usage =
         TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
+
+    let meshes = Meshes {
+        current: 0,
+        meshes: vec![
+            ("Box", meshes.add(Mesh::from(shape::Cube { size: 2.0 }))),
+            (
+                "Sphere",
+                meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 1.0,
+                    sectors: 50,
+                    stacks: 50,
+                })),
+            ),
+            (
+                "Torus",
+                meshes.add(Mesh::from(shape::Torus {
+                    radius: 0.8,
+                    ring_radius: 0.2,
+                    subdivisions_segments: 75,
+                    subdivisions_sides: 50,
+                })),
+            ),
+        ],
+    };
     let image = images.add(image);
     {
         commands.spawn_bundle(MaterialMeshBundle::<RTVolumeMaterial> {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
+            mesh: meshes.meshes[meshes.current].1.clone(),
             material: materials.add(RTVolumeMaterial {
                 volume: image.clone(),
             }),
@@ -74,6 +104,7 @@ fn setup(
         });
     }
 
+    commands.insert_resource(meshes);
     commands.insert_resource(CurrentSize(rule.size));
     commands.insert_resource(CAImage(image));
 }
@@ -93,5 +124,14 @@ fn update_size(
                 depth_or_array_layers: rule.size,
             });
         }
+    }
+}
+
+fn update_shape(meshes: Res<Meshes>, mut mesh: Query<&mut Handle<Mesh>>, mut last: Local<usize>) {
+    if *last != meshes.current {
+        for mut mesh in mesh.iter_mut() {
+            *mesh = meshes.meshes[meshes.current].1.clone();
+        }
+        *last = meshes.current;
     }
 }
