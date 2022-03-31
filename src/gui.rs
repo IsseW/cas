@@ -85,7 +85,7 @@ fn egui_system(
             }
 
             ui.label("States");
-            ui.add(egui::Slider::new(&mut rule.states, 1..=20));
+            ui.add(egui::Slider::new(&mut rule.states, 1..=40));
             ui.end_row();
 
             egui::ComboBox::from_label("Neighbor mode")
