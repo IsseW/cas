@@ -48,6 +48,7 @@ fn get(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
 
 struct Rule {
     size: u32;
+    spawn_mode: u32;
     spawn_chance: f32;
     survival: u32;
     birth: u32;

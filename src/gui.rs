@@ -7,7 +7,7 @@ use bevy_egui::{
 use crate::{
     ca_compute::{ReInit, UpdateTime},
     fly_cam::MovementSettings,
-    rule::{ColorMode, ColorModeKind, NeighborMode, Rule, Value},
+    rule::{ColorMode, ColorModeKind, NeighborMode, Rule, SpawnMode, SpawnModeKind, Value},
     Meshes, START_SENSITIVITY, START_SPEED,
 };
 
@@ -41,14 +41,34 @@ fn egui_system(
         if let Some(mut rule) = rule {
             if let Some(mut reinit) = reinit {
                 ui.heading("Spawn");
-                ui.label("Spawn chance");
-                let mut spawn_chance = 1.0 - rule.spawn_chance;
-                ui.add(egui::Slider::new(&mut spawn_chance, 0.0..=1.0).logarithmic(true));
-                rule.spawn_chance = 1.0 - spawn_chance;
+                let mut mode = rule.spawn_mode.kind();
+                egui::ComboBox::from_label("Spawn mode")
+                    .selected_text(mode.as_str())
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut mode,
+                            SpawnModeKind::Random,
+                            SpawnModeKind::Random.as_str(),
+                        );
+                        ui.selectable_value(
+                            &mut mode,
+                            SpawnModeKind::MengerSponge,
+                            SpawnModeKind::MengerSponge.as_str(),
+                        );
+                    });
+                mode.update(&mut rule.spawn_mode);
+                match &mut rule.spawn_mode {
+                    SpawnMode::Random(f) => {
+                        *f = 1.0 - *f;
+                        ui.add(egui::Slider::new(f, 0.0..=1.0));
+                        *f = 1.0 - *f;
+                    }
+                    _ => {}
+                }
+                ui.end_row();
                 if ui.button("Reset").clicked() {
                     reinit.0 = true;
                 }
-                ui.end_row();
             }
 
             ui.heading("Rule");

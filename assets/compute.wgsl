@@ -7,6 +7,7 @@ fn get(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
 
 struct Rule {
     size: u32;
+    spawn_mode: u32;
     spawn_chance: f32;
     survival: u32;
     birth: u32;
@@ -94,14 +95,36 @@ fn random_float(value: u32) -> f32 {
 }
 
 [[stage(compute), workgroup_size(8, 8, 8)]]
-fn init([[builtin(global_invocation_id)]] invocation_id: vec3<u32>) {
-    let pos = vec3<i32>(invocation_id);
-    let pos_f32 = vec3<f32>(pos);
+fn init([[builtin(global_invocation_id)]] pos: vec3<u32>) {
+    var alive = false;
+    switch (r_rule.spawn_mode) {
+        // Random
+        case 0: {
+            let random_number = random_float(pos.z * r_rule.size * r_rule.size + pos.y * r_rule.size + pos.x);
+            alive = random_number > r_rule.spawn_chance;
+        }
+        // Menger Sponge
+        case 1: {
+            let size = r_rule.size;
+            var i = u32(3);
+            loop {
+                let s = size / i;
+                if (size - s * i != u32(0)) {
+                    alive = true;
+                    break;
+                }
+                let p = abs(vec3<i32>((pos / s) - (pos / s) / u32(3) * u32(3)) - vec3<i32>(1));
+                if (p.x + p.y + p.z <= 1) {
+                    break;
+                }
+                i = i * u32(3);
+            }
+        }
+        default: {}
+    }
     
-    let random_number = random_float(invocation_id.z * r_rule.size * r_rule.size + invocation_id.y * r_rule.size + invocation_id.x);
-    let alive = random_number > r_rule.spawn_chance;
     
-    textureStore(r_cells, pos, vec4<u32>(u32(alive) * u32(r_rule.states)));
+    textureStore(r_cells, vec3<i32>(pos), vec4<u32>(u32(alive) * u32(r_rule.states)));
 }
 
 [[stage(compute), workgroup_size(8, 8, 8)]]

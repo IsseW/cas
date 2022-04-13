@@ -103,7 +103,7 @@ fn reset_position(
     mut input_state: ResMut<InputState>,
     mut query: Query<(&FlyCam, &mut Transform)>,
 ) {
-    if input.pressed(KeyCode::R) {
+    if input.pressed(KeyCode::B) {
         for (_camera, mut transform) in query.iter_mut() {
             *transform = transform.looking_at(Vec3::ZERO, Vec3::Y);
             let rotation = transform.rotation.to_euler(EulerRot::XYZ);

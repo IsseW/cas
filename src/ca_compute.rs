@@ -51,7 +51,7 @@ fn extract_ca_image(
     input: Res<Input<KeyCode>>,
 ) {
     commands.insert_resource(CAImage(image.0.clone()));
-    commands.insert_resource(ReInit(reinit.0 || input.just_pressed(KeyCode::P)));
+    commands.insert_resource(ReInit(reinit.0 || input.just_pressed(KeyCode::R)));
     reinit.0 = false;
 }
 
@@ -68,11 +68,12 @@ struct DoUpdate(bool);
 fn update_timer(
     mut commands: Commands,
     update_time: Res<UpdateTime>,
+    input: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut last_update: Local<f64>,
 ) {
     let t = time.time_since_startup().as_secs_f64();
-    if t - *last_update > update_time.0 {
+    if t - *last_update > update_time.0 || input.just_pressed(KeyCode::E) {
         *last_update = t;
         commands.insert_resource(DoUpdate(true));
     } else {

@@ -192,17 +192,66 @@ impl ColorModeKind {
     }
 }
 
+#[derive(Clone)]
+pub enum SpawnMode {
+    Random(f32),
+    MengerSponge,
+}
+
+impl SpawnMode {
+    pub fn kind(&self) -> SpawnModeKind {
+        match self {
+            Self::Random(_) => SpawnModeKind::Random,
+            Self::MengerSponge => SpawnModeKind::MengerSponge,
+        }
+    }
+
+    pub fn float(&self) -> f32 {
+        match self {
+            Self::Random(f) => *f,
+            Self::MengerSponge => 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum SpawnModeKind {
+    Random,
+    MengerSponge,
+}
+
+impl SpawnModeKind {
+    pub fn update(&self, mode: &mut SpawnMode) {
+        let float = mode.float();
+        match self {
+            Self::Random => {
+                *mode = SpawnMode::Random(float);
+            }
+            Self::MengerSponge => {
+                *mode = SpawnMode::MengerSponge;
+            }
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Random => "Random",
+            Self::MengerSponge => "Menger Sponge",
+        }
+    }
+}
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 struct GPURule {
     pub size: u32,
+    spawn_mode: u32,
     spawn_chance: f32,
     survival: u32,
     birth: u32,
     states: u32,
     neighbor_mode: u32,
     color_mode: u32,
-    padding: [f32; 1],
     color0: [f32; 4],
     color1: [f32; 4],
 }
@@ -217,7 +266,8 @@ impl From<&Rule> for GPURule {
         };
         Self {
             size: rule.size,
-            spawn_chance: rule.spawn_chance,
+            spawn_mode: rule.spawn_mode.kind() as u32,
+            spawn_chance: rule.spawn_mode.float(),
             survival: rule.survival.into(),
             birth: rule.birth.into(),
             states: rule.states,
@@ -225,7 +275,6 @@ impl From<&Rule> for GPURule {
             color_mode,
             color0,
             color1,
-            padding: [0.0; 1],
         }
     }
 }
@@ -233,7 +282,7 @@ impl From<&Rule> for GPURule {
 #[derive(Clone)]
 pub struct Rule {
     pub size: u32,
-    pub spawn_chance: f32,
+    pub spawn_mode: SpawnMode,
     pub survival: Value,
     pub birth: Value,
     pub states: u32,
@@ -278,8 +327,8 @@ pub struct RulePlugin;
 impl Plugin for RulePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Rule {
-            size: 256,
-            spawn_chance: 0.99,
+            size: 729,
+            spawn_mode: SpawnMode::MengerSponge,
             survival: vec![4].into(),
             birth: vec![4, 5, 6, 7].into(),
             states: 5,
