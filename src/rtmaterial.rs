@@ -119,6 +119,7 @@ impl Material for RTVolumeMaterial {
     }
 
     fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &bevy::render::mesh::MeshVertexBufferLayout,
     ) -> Result<(), SpecializedMeshPipelineError> {
