@@ -1,15 +1,12 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_bindings
+#import bevy_pbr::mesh_view_bindings
 
 struct VertexOutput {
-    [[location(0)]] pos: vec3<f32>;
-    [[location(1)]] world_position: vec3<f32>;
-    [[location(2)]] cam_pos: vec3<f32>;
-    [[builtin(position)]] clip_position: vec4<f32>;
+    @location(0) pos: vec3<f32>,
+    @location(1) world_position: vec3<f32>,
+    @location(2) cam_pos: vec3<f32>,
+    @builtin(position) clip_position: vec4<f32>,
 };
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
 
 fn max_abs_e(v: vec3<f32>) -> f32 {
     return max(abs(v.x), max(abs(v.y), abs(v.z)));
@@ -17,10 +14,10 @@ fn max_abs_e(v: vec3<f32>) -> f32 {
 
 let EPSILON = 0.0001;
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] position: vec3<f32>,
-    [[location(1)]] normal: vec3<f32>,
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
 ) -> VertexOutput {
     let world_position = mesh.model * vec4<f32>(position, 1.0);
     let cam_pos = (mesh.inverse_transpose_model * vec4<f32>(view.world_position, 1.0)).xyz;
@@ -39,26 +36,23 @@ fn vertex(
     return out;
 }
 
-[[group(1), binding(0)]]
-var r_cells: texture_3d<u32>;
-fn get(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
-    let value: vec4<u32> = textureLoad(r_cells, pos + vec3<i32>(offset_x, offset_y, offset_z), 0);
-    return i32(value.x);
-}
+@group(1) @binding(0)
+var r_cells: texture_storage_3d<r8uint, read_write>;
 
 struct Rule {
-    size: u32;
-    spawn_mode: u32;
-    spawn_chance: f32;
-    survival: u32;
-    birth: u32;
-    states: u32;
-    neighbor_mode: u32;
-    color_mode: u32;
-    color0: vec4<f32>;
-    color1: vec4<f32>;
+    size: u32,
+    spawn_mode: u32,
+    spawn_chance: f32,
+    survival: u32,
+    birth: u32,
+    states: u32,
+    neighbor_mode: u32,
+    color_mode: u32,
+    color0: vec4<f32>,
+    color1: vec4<f32>,
 };
-[[group(1), binding(1)]]
+
+@group(1) @binding(1)
 var<uniform> r_rule: Rule;
 
 /// MOVE THIS TO IMPORT
@@ -86,7 +80,7 @@ fn is_outside(pos: vec3<f32>) -> bool {
 let ERR_COLOR = vec3<f32>(1.0, 0.2, 0.6);
 
 fn color(state: u32, p: vec3<f32>) -> vec3<f32> {
-    switch (r_rule.color_mode) {
+    switch i32(r_rule.color_mode) {
         case 0: {
             return r_rule.color0.xyz;
         }
@@ -140,7 +134,7 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
     var pos = floor(origin);
 
     loop {
-        let state = textureLoad(r_cells, vec3<i32>(pos), 0).x;
+        let state = textureLoad(r_cells, vec3<i32>(pos)).x;
         if (state > u32(0)) {
             return color(state, pos);
         }
@@ -178,7 +172,7 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
     // var pos = origin;
     // loop {
     //     let ipos = vec3<i32>(pos);
-    //     let state = textureLoad(r_cells, ipos, 0).x;
+    //     let state = textureLoad(r_cells, ipos).x;
     //     if (state > u32(0)) {
     //         return color(state); // + (random_float(u32(ipos.z) * r_rule.size * r_rule.size + u32(ipos.y) * r_rule.size + u32(ipos.x)) - 0.5) * 0.05;
     //     }
@@ -190,8 +184,8 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
     // return clear;
 }
 
-[[stage(fragment)]]
-fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
+@fragment
+fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let dir = normalize(in.world_position - in.cam_pos);
     
     let fpos = in.pos.xyz * f32(r_rule.size);

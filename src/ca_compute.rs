@@ -1,60 +1,55 @@
-use std::{borrow::Cow, num::NonZeroU64};
+use std::borrow::Cow;
 
 use bevy::{
-    core_pipeline::node::MAIN_PASS_DEPENDENCIES,
+    pbr::RenderMaterials,
     prelude::*,
     render::{
-        render_asset::*,
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice},
-        RenderApp, RenderStage,
+        Extract, RenderApp, RenderStage,
     },
 };
 
-use crate::{
-    rule::{Rule, RuleBuffer},
-    WORKGROUP_SIZE,
-};
+use crate::{rtmaterial::RTVolumeMaterial, rule::Rule, WORKGROUP_SIZE};
 
 pub struct CAPlugin;
 
 impl Plugin for CAPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ReInit>().init_resource::<UpdateTime>();
+        app.add_plugin(ExtractResourcePlugin::<CAImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .init_resource::<ReInit>()
             .init_resource::<CAPipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_ca_image)
-            .add_system_to_stage(RenderStage::Extract, update_timer)
-            .add_system_to_stage(RenderStage::Queue, queue_bind_group.after("rule_buffer"));
+            .add_system_to_stage(RenderStage::Extract, extract_reinit)
+            .add_system_to_stage(RenderStage::Extract, update_timer);
 
         let mut render_graph = render_app.world.get_resource_mut::<RenderGraph>().unwrap();
         render_graph.add_node("cas", DispatchCA::default());
         render_graph
-            .add_node_edge("cas", MAIN_PASS_DEPENDENCIES)
+            .add_node_edge("cas", bevy::render::main_graph::node::CAMERA_DRIVER)
             .unwrap();
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Resource)]
 pub struct ReInit(pub bool);
 
+#[derive(Resource, Clone, ExtractResource)]
 pub struct CAImage(pub Handle<Image>);
-struct CABindGroup(BindGroup);
 
-fn extract_ca_image(
+fn extract_reinit(
     mut commands: Commands,
-    image: Res<CAImage>,
-    mut reinit: ResMut<ReInit>,
-    input: Res<Input<KeyCode>>,
+    reinit: Extract<Res<ReInit>>,
+    input: Extract<Res<Input<KeyCode>>>,
 ) {
-    commands.insert_resource(CAImage(image.0.clone()));
     commands.insert_resource(ReInit(reinit.0 || input.just_pressed(KeyCode::R)));
-    reinit.0 = false;
 }
 
+#[derive(Resource)]
 pub struct UpdateTime(pub f64);
 
 impl Default for UpdateTime {
@@ -63,16 +58,17 @@ impl Default for UpdateTime {
     }
 }
 
+#[derive(Resource)]
 struct DoUpdate(bool);
 
 fn update_timer(
     mut commands: Commands,
-    update_time: Res<UpdateTime>,
-    input: Res<Input<KeyCode>>,
-    time: Res<Time>,
+    update_time: Extract<Res<UpdateTime>>,
+    input: Extract<Res<Input<KeyCode>>>,
+    time: Extract<Res<Time>>,
     mut last_update: Local<f64>,
 ) {
-    let t = time.time_since_startup().as_secs_f64();
+    let t = time.elapsed_seconds_f64();
     if t - *last_update > update_time.0 || input.just_pressed(KeyCode::E) {
         *last_update = t;
         commands.insert_resource(DoUpdate(true));
@@ -81,73 +77,15 @@ fn update_timer(
     }
 }
 
-fn queue_bind_group(
-    mut commands: Commands,
-    pipeline: Res<CAPipeline>,
-    gpu_images: Res<RenderAssets<Image>>,
-    ca_image: Res<CAImage>,
-    rule: Res<RuleBuffer>,
-    render_device: Res<RenderDevice>,
-    bind_group: Option<ResMut<CABindGroup>>,
-) {
-    if bind_group.is_none() {
-        if let Some(rule) = rule.0.as_ref() {
-            let view = &gpu_images[&ca_image.0];
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                label: None,
-                layout: &pipeline.bind_group,
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: BindingResource::TextureView(&view.texture_view),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: rule.as_entire_binding(),
-                    },
-                ],
-            });
-            commands.insert_resource(CABindGroup(bind_group));
-        }
-    }
-}
-
+#[derive(Resource)]
 pub struct CAPipeline {
-    bind_group: BindGroupLayout,
     init_pipeline: CachedComputePipelineId,
     update_pipeline: CachedComputePipelineId,
 }
 
 impl FromWorld for CAPipeline {
     fn from_world(world: &mut World) -> Self {
-        let bind_group =
-            world
-                .resource::<RenderDevice>()
-                .create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    label: None,
-                    entries: &[
-                        BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: ShaderStages::COMPUTE,
-                            ty: BindingType::StorageTexture {
-                                access: StorageTextureAccess::ReadWrite,
-                                format: TextureFormat::R8Uint,
-                                view_dimension: TextureViewDimension::D3,
-                            },
-                            count: None,
-                        },
-                        BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: ShaderStages::COMPUTE,
-                            ty: BindingType::Buffer {
-                                ty: BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: Some(NonZeroU64::new(64).unwrap()),
-                            },
-                            count: None,
-                        },
-                    ],
-                });
+        let bind_group = RTVolumeMaterial::bind_group_layout(world.resource::<RenderDevice>());
 
         let shader = world
             .resource::<AssetServer>()
@@ -170,7 +108,6 @@ impl FromWorld for CAPipeline {
         });
 
         CAPipeline {
-            bind_group,
             init_pipeline,
             update_pipeline,
         }
@@ -237,33 +174,38 @@ impl render_graph::Node for DispatchCA {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let bind_group = &world.get_resource::<CABindGroup>().unwrap().0;
+        let materials = &world
+            .get_resource::<RenderMaterials<RTVolumeMaterial>>()
+            .unwrap()
+            .0;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<CAPipeline>();
+        let rule = world.get_resource::<Rule>().unwrap();
 
         let mut pass = render_context
             .command_encoder
             .begin_compute_pass(&ComputePassDescriptor::default());
 
-        let rule = world.get_resource::<Rule>().unwrap();
-        let wg: u32 = rule.size / WORKGROUP_SIZE;
-        pass.set_bind_group(0, bind_group, &[]);
-        match self.state {
-            CAState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_pipeline(init_pipeline);
-                pass.dispatch(wg, wg, wg);
+        for (_handle, prepared) in materials {
+            let wg: u32 = rule.size / WORKGROUP_SIZE;
+            pass.set_bind_group(0, &prepared.bind_group, &[]);
+            match self.state {
+                CAState::Init => {
+                    let init_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.init_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(init_pipeline);
+                    pass.dispatch_workgroups(wg, wg, wg);
+                }
+                CAState::UpdateRun => {
+                    let update_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.update_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(update_pipeline);
+                    pass.dispatch_workgroups(wg, wg, wg);
+                }
+                _ => {}
             }
-            CAState::UpdateRun => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch(wg, wg, wg);
-            }
-            _ => {}
         }
 
         Ok(())

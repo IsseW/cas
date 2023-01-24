@@ -20,13 +20,16 @@ fn main() {
     App::new()
         .add_startup_system(setup)
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WindowDescriptor {
-            // uncomment for unthrottled FPS
-            present_mode: bevy::window::PresentMode::Immediate,
-            title: "Cellular Automata".to_string(),
-            ..Default::default()
-        })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                present_mode: bevy::window::PresentMode::Immediate,
+                title: "Cellular Automata".to_string(),
+                ..Default::default()
+            },
+            add_primary_window: true,
+            exit_on_all_closed: true,
+            close_when_requested: true,
+        }))
         .insert_resource(MovementSettings {
             sensitivity: START_SENSITIVITY,
             speed: START_SPEED,
@@ -41,8 +44,10 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct CurrentSize(u32);
 
+#[derive(Resource)]
 struct Meshes {
     meshes: Vec<(&'static str, Handle<Mesh>)>,
     current: usize,
@@ -54,9 +59,7 @@ fn setup(
     mut materials: ResMut<Assets<RTVolumeMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     rule: Res<Rule>,
-    asset_server: Res<AssetServer>,
 ) {
-    asset_server.watch_for_changes().unwrap();
     let mut image = Image::new_fill(
         Extent3d {
             width: rule.size,
@@ -94,15 +97,14 @@ fn setup(
         ],
     };
     let image = images.add(image);
-    {
-        commands.spawn_bundle(MaterialMeshBundle::<RTVolumeMaterial> {
-            mesh: meshes.meshes[meshes.current].1.clone(),
-            material: materials.add(RTVolumeMaterial {
-                volume: image.clone(),
-            }),
-            ..Default::default()
-        });
-    }
+    commands.spawn(MaterialMeshBundle::<RTVolumeMaterial> {
+        mesh: meshes.meshes[meshes.current].1.clone(),
+        material: materials.add(RTVolumeMaterial {
+            volume: Some(image.clone()),
+            rule: rule.clone(),
+        }),
+        ..default()
+    });
 
     commands.insert_resource(meshes);
     commands.insert_resource(CurrentSize(rule.size));
@@ -117,7 +119,7 @@ fn update_size(
 ) {
     if size.0 != rule.size {
         size.0 = rule.size;
-        if let Some(image) = images.get_mut(image.0.clone()) {
+        if let Some(image) = images.get_mut(&image.0) {
             image.resize(Extent3d {
                 width: rule.size,
                 height: rule.size,

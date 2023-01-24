@@ -1,14 +1,15 @@
-use bevy::{ecs::event::Events, prelude::*};
+use bevy::{ecs::event::Events, prelude::*, window::CursorGrabMode};
 use bevy::{ecs::event::ManualEventReader, input::mouse::MouseMotion};
 
 /// Keeps track of mouse motion events, pitch, and yaw
-#[derive(Default)]
+#[derive(Default, Resource)]
 struct InputState {
     reader_motion: ManualEventReader<MouseMotion>,
     pitch: f32,
     yaw: f32,
 }
 
+#[derive(Resource)]
 /// Mouse sensitivity and movement speed
 pub struct MovementSettings {
     pub sensitivity: f32,
@@ -30,7 +31,10 @@ pub struct FlyCam;
 
 /// Grabs/ungrabs mouse cursor
 fn toggle_grab_cursor(window: &mut Window) {
-    window.set_cursor_lock_mode(!window.cursor_locked());
+    window.set_cursor_grab_mode(match window.cursor_grab_mode() {
+        CursorGrabMode::None => CursorGrabMode::Confined,
+        CursorGrabMode::Confined | CursorGrabMode::Locked => CursorGrabMode::None,
+    });
     window.set_cursor_visibility(!window.cursor_visible());
 }
 
@@ -49,13 +53,13 @@ fn setup_player(mut commands: Commands) {
         ..Default::default()
     });
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
+        .spawn(Camera3dBundle {
             transform,
-            perspective_projection: PerspectiveProjection {
+            projection: Projection::Perspective(PerspectiveProjection {
                 near: 0.0001,
                 far: 15.0,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         })
         .insert(FlyCam);
@@ -78,7 +82,7 @@ fn player_move(
         let mut boost = 1.0;
 
         for key in keys.get_pressed() {
-            if window.cursor_locked() {
+            if matches!(window.cursor_grab_mode(), CursorGrabMode::Confined) {
                 match key {
                     KeyCode::W => velocity += forward,
                     KeyCode::S => velocity -= forward,
@@ -122,7 +126,7 @@ fn player_look(
     mut query: Query<(&FlyCam, &mut Transform)>,
 ) {
     let window = windows.get_primary_mut().unwrap();
-    if window.cursor_locked() {
+    if matches!(window.cursor_grab_mode(), CursorGrabMode::Confined) {
         for (_camera, mut transform) in query.iter_mut() {
             let mut new_yaw = state.yaw;
             let mut new_pitch = state.pitch;

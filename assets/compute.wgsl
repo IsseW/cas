@@ -1,23 +1,26 @@
-[[group(0), binding(0)]]
+
+@group(0) @binding(0)
 var r_cells: texture_storage_3d<r8uint, read_write>;
-fn get(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
+
+fn get_cell(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
     let value: vec4<u32> = textureLoad(r_cells, pos + vec3<i32>(offset_x, offset_y, offset_z));
     return i32(value.x);
 }
 
 struct Rule {
-    size: u32;
-    spawn_mode: u32;
-    spawn_chance: f32;
-    survival: u32;
-    birth: u32;
-    states: u32;
-    neighbor_mode: u32;
-    color_mode: u32;
-    color0: vec4<f32>;
-    color1: vec4<f32>;
+    size: u32,
+    spawn_mode: u32,
+    spawn_chance: f32,
+    survival: u32,
+    birth: u32,
+    states: u32,
+    neighbor_mode: u32,
+    color_mode: u32,
+    color0: vec4<f32>,
+    color1: vec4<f32>,
 };
-[[group(0), binding(1)]]
+
+@group(0) @binding(1)
 var<uniform> r_rule: Rule;
 
 fn is_alive(value: i32) -> i32 {
@@ -33,45 +36,45 @@ fn should_birth(num_neighbours: i32) -> bool {
 }
 
 fn count_alive(pos: vec3<i32>) -> i32 {
-    switch (r_rule.neighbor_mode) {
+    switch i32(r_rule.neighbor_mode) {
         case 0: {
-            return is_alive(get(pos, -1, -1, -1)) + 
-                   is_alive(get(pos, -1, -1,  0)) + 
-                   is_alive(get(pos, -1, -1,  1)) + 
-                   is_alive(get(pos, -1,  0, -1)) + 
-                   is_alive(get(pos, -1,  0,  0)) + 
-                   is_alive(get(pos, -1,  0,  1)) + 
-                   is_alive(get(pos, -1,  1, -1)) + 
-                   is_alive(get(pos, -1,  1,  0)) + 
-                   is_alive(get(pos, -1,  1,  1)) + 
+            return is_alive(get_cell(pos, -1, -1, -1)) + 
+                   is_alive(get_cell(pos, -1, -1,  0)) + 
+                   is_alive(get_cell(pos, -1, -1,  1)) + 
+                   is_alive(get_cell(pos, -1,  0, -1)) + 
+                   is_alive(get_cell(pos, -1,  0,  0)) + 
+                   is_alive(get_cell(pos, -1,  0,  1)) + 
+                   is_alive(get_cell(pos, -1,  1, -1)) + 
+                   is_alive(get_cell(pos, -1,  1,  0)) + 
+                   is_alive(get_cell(pos, -1,  1,  1)) + 
        
-                   is_alive(get(pos,  0, -1, -1)) + 
-                   is_alive(get(pos,  0, -1,  0)) + 
-                   is_alive(get(pos,  0, -1,  1)) + 
-                   is_alive(get(pos,  0,  0, -1)) + 
-                   //is_alive(get(pos,  0,  0,  0)) + Don't count yourself
-                   is_alive(get(pos,  0,  0,  1)) + 
-                   is_alive(get(pos,  0,  1, -1)) + 
-                   is_alive(get(pos,  0,  1,  0)) + 
-                   is_alive(get(pos,  0,  1,  1)) + 
+                   is_alive(get_cell(pos,  0, -1, -1)) + 
+                   is_alive(get_cell(pos,  0, -1,  0)) + 
+                   is_alive(get_cell(pos,  0, -1,  1)) + 
+                   is_alive(get_cell(pos,  0,  0, -1)) + 
+                   //is_alive(get_cell(pos,  0,  0,  0)) + Don't count yourself
+                   is_alive(get_cell(pos,  0,  0,  1)) + 
+                   is_alive(get_cell(pos,  0,  1, -1)) + 
+                   is_alive(get_cell(pos,  0,  1,  0)) + 
+                   is_alive(get_cell(pos,  0,  1,  1)) + 
        
-                   is_alive(get(pos,  1, -1, -1)) + 
-                   is_alive(get(pos,  1, -1,  0)) + 
-                   is_alive(get(pos,  1, -1,  1)) + 
-                   is_alive(get(pos,  1,  0, -1)) + 
-                   is_alive(get(pos,  1,  0,  0)) + 
-                   is_alive(get(pos,  1,  0,  1)) + 
-                   is_alive(get(pos,  1,  1, -1)) + 
-                   is_alive(get(pos,  1,  1,  0)) + 
-                   is_alive(get(pos,  1,  1,  1));
+                   is_alive(get_cell(pos,  1, -1, -1)) + 
+                   is_alive(get_cell(pos,  1, -1,  0)) + 
+                   is_alive(get_cell(pos,  1, -1,  1)) + 
+                   is_alive(get_cell(pos,  1,  0, -1)) + 
+                   is_alive(get_cell(pos,  1,  0,  0)) + 
+                   is_alive(get_cell(pos,  1,  0,  1)) + 
+                   is_alive(get_cell(pos,  1,  1, -1)) + 
+                   is_alive(get_cell(pos,  1,  1,  0)) + 
+                   is_alive(get_cell(pos,  1,  1,  1));
         }
         case 1: {
-            return is_alive(get(pos,  0,  0, -1)) + 
-                   is_alive(get(pos,  0,  0,  1)) + 
-                   is_alive(get(pos,  0, -1,  0)) + 
-                   is_alive(get(pos,  0,  1,  0)) + 
-                   is_alive(get(pos, -1,  0,  0)) + 
-                   is_alive(get(pos,  1,  0,  0));
+            return is_alive(get_cell(pos,  0,  0, -1)) + 
+                   is_alive(get_cell(pos,  0,  0,  1)) + 
+                   is_alive(get_cell(pos,  0, -1,  0)) + 
+                   is_alive(get_cell(pos,  0,  1,  0)) + 
+                   is_alive(get_cell(pos, -1,  0,  0)) + 
+                   is_alive(get_cell(pos,  1,  0,  0));
         }
         default: {
             return 0;
@@ -94,10 +97,10 @@ fn random_float(value: u32) -> f32 {
     return f32(hash(value)) / 4294967295.0;
 }
 
-[[stage(compute), workgroup_size(8, 8, 8)]]
-fn init([[builtin(global_invocation_id)]] pos: vec3<u32>) {
+@compute @workgroup_size(8, 8, 8)
+fn init(@builtin(global_invocation_id) pos: vec3<u32>) {
     var alive = false;
-    switch (r_rule.spawn_mode) {
+    switch i32(r_rule.spawn_mode) {
         // Random
         case 0: {
             let random_number = random_float(pos.z * r_rule.size * r_rule.size + pos.y * r_rule.size + pos.x);
@@ -127,10 +130,10 @@ fn init([[builtin(global_invocation_id)]] pos: vec3<u32>) {
     textureStore(r_cells, vec3<i32>(pos), vec4<u32>(u32(alive) * u32(r_rule.states)));
 }
 
-[[stage(compute), workgroup_size(8, 8, 8)]]
-fn update([[builtin(global_invocation_id)]] invocation_id: vec3<u32>) {
+@compute @workgroup_size(8, 8, 8)
+fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let pos = vec3<i32>(invocation_id);
-    var cur = get(pos, 0, 0, 0);
+    var cur = get_cell(pos, 0, 0, 0);
 
     let alive = count_alive(pos);
 

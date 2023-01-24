@@ -21,6 +21,7 @@ impl Plugin for GuiPlugin {
 
 #[derive(Default)]
 struct State {
+    import: String,
     survival: String,
     birth: String,
     size: u32,
@@ -66,13 +67,33 @@ fn egui_system(
                     _ => {}
                 }
                 ui.end_row();
-                if ui.button("Reset").clicked() {
-                    reinit.0 = true;
-                }
+                reinit.0 = ui.button("Reset").clicked();
             }
 
             ui.heading("Rule");
             ui.end_row();
+
+            ui.label("Import: ");
+            let re = ui.text_edit_singleline(&mut state.import);
+            if re.lost_focus() && re.ctx.input().key_pressed(egui::Key::Enter) {
+                let mut items = state.import.trim().split('/');
+                if let (Some(survival), Some(birth), Some(states), Some(neighbor_mode)) = (
+                    items.next().and_then(Value::try_parse),
+                    items.next().and_then(Value::try_parse),
+                    items.next().and_then(|s| s.parse().ok()),
+                    items.next().and_then(|s| match s {
+                        "M" => Some(NeighborMode::Moore),
+                        "N" => Some(NeighborMode::VonNeumann),
+                        _ => None,
+                    }),
+                ) {
+                    rule.survival = survival;
+                    rule.birth = birth;
+                    rule.states = states;
+                    rule.neighbor_mode = neighbor_mode;
+                }
+                state.import.clear();
+            }
 
             ui.label("Size");
             if state.size == 0 {
@@ -172,7 +193,7 @@ fn egui_system(
                         lightness,
                         alpha,
                     } => {
-                        let mut c = egui::color::Hsva::new(hue, saturation, lightness, alpha);
+                        let mut c = egui::epaint::Hsva::new(hue, saturation, lightness, alpha);
                         let res = ui.color_edit_button_hsva(&mut c);
                         *color = Color::Hsla {
                             hue: c.h,

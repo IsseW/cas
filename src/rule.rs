@@ -1,14 +1,12 @@
 use bevy::{
     prelude::*,
-    render::{
-        render_resource::{Buffer, BufferInitDescriptor, BufferUsages},
-        renderer::{RenderDevice, RenderQueue},
-        RenderApp, RenderStage,
-    },
+    render::extract_resource::{ExtractResource, ExtractResourcePlugin},
 };
 use bytemuck::{Pod, Zeroable};
 
-#[derive(Clone, Copy, Default)]
+use crate::rtmaterial::RTVolumeMaterial;
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 pub struct Value([bool; 27]);
 
 impl Value {
@@ -27,34 +25,11 @@ impl Value {
         let mut res = Value::default();
         for value in s.split(",") {
             let value = value.trim();
-            if let Some((r0, r1)) = value.split_once("..=") {
+            if let Some((r0, r1)) = value.split_once('-') {
                 let r0 = r0.trim_end();
                 let r1 = r1.trim_start();
                 for i in r0.parse::<usize>().ok()?..=r1.parse::<usize>().ok()? {
                     *res.0.get_mut(26 - i)? = true;
-                }
-            } else if let Some((r0, r1)) = value.split_once("..") {
-                let r0 = r0.trim_end();
-                let r1 = r1.trim_start();
-                match (r0.len(), r1.len()) {
-                    (0, 0) => {
-                        res.0 = [true; 27];
-                    }
-                    (0, _) => {
-                        for i in 0..r1.parse::<usize>().ok()? {
-                            *res.0.get_mut(26 - i)? = true;
-                        }
-                    }
-                    (_, 0) => {
-                        for i in r0.parse::<usize>().ok()?..27 {
-                            *res.0.get_mut(26 - i)? = true;
-                        }
-                    }
-                    _ => {
-                        for i in r0.parse::<usize>().ok()?..r1.parse::<usize>().ok()? {
-                            *res.0.get_mut(26 - i)? = true;
-                        }
-                    }
                 }
             } else {
                 *res.0.get_mut(26 - value.parse::<usize>().ok()?)? = true;
@@ -78,7 +53,7 @@ impl ToString for Value {
                 if start == end {
                     elems.push(start.to_string());
                 } else {
-                    elems.push(format!("{}..={}", start, end));
+                    elems.push(format!("{}-{}", start, end));
                 }
             } else {
                 i += 1;
@@ -112,7 +87,7 @@ impl From<Value> for u32 {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum NeighborMode {
     Moore = 0,
     VonNeumann = 1,
@@ -127,13 +102,15 @@ impl NeighborMode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ColorMode {
     Single(Color),
     StateLerp(Color, Color),
     DistToCenter(Color, Color),
     Neighbour(Color, Color),
 }
+
+impl Eq for ColorMode {}
 
 impl ColorMode {
     pub fn kind(&self) -> ColorModeKind {
@@ -192,11 +169,13 @@ impl ColorModeKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SpawnMode {
     Random(f32),
     MengerSponge,
 }
+
+impl Eq for SpawnMode {}
 
 impl SpawnMode {
     pub fn kind(&self) -> SpawnModeKind {
@@ -243,8 +222,8 @@ impl SpawnModeKind {
 }
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Default, Pod, Zeroable)]
-struct GPURule {
-    pub size: u32,
+pub struct GPURule {
+    size: u32,
     spawn_mode: u32,
     spawn_chance: f32,
     survival: u32,
@@ -279,7 +258,7 @@ impl From<&Rule> for GPURule {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Resource, PartialEq, Eq, Debug, ExtractResource)]
 pub struct Rule {
     pub size: u32,
     pub spawn_mode: SpawnMode,
@@ -290,35 +269,17 @@ pub struct Rule {
     pub color_mode: ColorMode,
 }
 
-impl Rule {}
-#[derive(Clone, Default)]
-pub struct RuleBuffer(pub Option<Buffer>);
-
-fn extract_rule(mut commands: Commands, rule: Res<Rule>) {
-    commands.insert_resource(rule.clone());
-}
-
-fn queue_create_buffer(
+fn update_materials(
     rule: Res<Rule>,
-    mut rbuffer: ResMut<RuleBuffer>,
-    render_device: Res<RenderDevice>,
-    queue: ResMut<RenderQueue>,
-    mut last_rule: Local<GPURule>,
+    material_query: Query<&Handle<RTVolumeMaterial>>,
+    mut materials: ResMut<Assets<RTVolumeMaterial>>,
 ) {
-    if let Some(buffer) = &mut rbuffer.0 {
-        let rule = GPURule::from(&*rule);
-        if !last_rule.eq(&rule) {
-            queue.write_buffer(buffer, 0, bytemuck::bytes_of(&rule));
-            *last_rule = rule;
+    for material in material_query.iter() {
+        if let Some(material) = materials.get_mut(material) {
+            if material.rule != *rule {
+                material.rule = rule.clone();
+            }
         }
-    } else {
-        *last_rule = GPURule::from(&*rule);
-        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::bytes_of(&*last_rule),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-        rbuffer.0 = Some(buffer);
     }
 }
 
@@ -327,19 +288,15 @@ pub struct RulePlugin;
 impl Plugin for RulePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Rule {
-            size: 729,
+            size: 255,
             spawn_mode: SpawnMode::MengerSponge,
             survival: vec![4].into(),
             birth: vec![4, 5, 6, 7].into(),
             states: 5,
             neighbor_mode: NeighborMode::Moore,
             color_mode: ColorMode::StateLerp(Color::rgb_u8(176, 0, 188), Color::rgb_u8(99, 0, 104)),
-        });
-        let render_app = app.sub_app_mut(RenderApp);
-
-        render_app
-            .init_resource::<RuleBuffer>()
-            .add_system_to_stage(RenderStage::Extract, extract_rule)
-            .add_system_to_stage(RenderStage::Queue, queue_create_buffer.label("rule_buffer"));
+        })
+        .add_plugin(ExtractResourcePlugin::<Rule>::default())
+        .add_system(update_materials);
     }
 }
