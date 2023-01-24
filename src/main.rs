@@ -11,7 +11,7 @@ use gui::GuiPlugin;
 use rtmaterial::{RTMatPlugin, RTVolumeMaterial};
 use rule::{Rule, RulePlugin};
 
-const WORKGROUP_SIZE: u32 = 8;
+const WORKGROUP_SIZE: u32 = 9;
 
 const START_SPEED: f32 = 0.1;
 const START_SENSITIVITY: f32 = 0.0004;

@@ -73,12 +73,6 @@ fn random_float(value: u32) -> f32 {
 }
 /// END
 
-fn is_outside(pos: vec3<f32>) -> bool {
-    return pos.x < -EPSILON || pos.x > f32(r_rule.size) + EPSILON ||
-            pos.y < -EPSILON || pos.y > f32(r_rule.size) + EPSILON ||
-            pos.z < -EPSILON || pos.z > f32(r_rule.size) + EPSILON;
-}
-
 let ERR_COLOR = vec3<f32>(1.0, 0.2, 0.6);
 
 fn color(state: u32, p: vec3<f32>) -> vec3<f32> {

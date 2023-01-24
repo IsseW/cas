@@ -288,7 +288,7 @@ pub struct RulePlugin;
 impl Plugin for RulePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Rule {
-            size: 729,
+            size: 243,
             spawn_mode: SpawnMode::MengerSponge,
             survival: vec![4].into(),
             birth: vec![4, 5, 6, 7].into(),

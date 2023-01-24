@@ -97,7 +97,7 @@ fn random_float(value: u32) -> f32 {
     return f32(hash(value)) / 4294967295.0;
 }
 
-@compute @workgroup_size(8, 8, 8)
+@compute @workgroup_size(9, 9, 9)
 fn init(@builtin(global_invocation_id) pos: vec3<u32>) {
     var alive = false;
     switch i32(r_rule.spawn_mode) {
@@ -130,7 +130,7 @@ fn init(@builtin(global_invocation_id) pos: vec3<u32>) {
     textureStore(r_cells, vec3<i32>(pos), vec4<u32>(u32(alive) * u32(r_rule.states)));
 }
 
-@compute @workgroup_size(8, 8, 8)
+@compute @workgroup_size(9, 9, 9)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let pos = vec3<i32>(invocation_id);
     var cur = get_cell(pos, 0, 0, 0);
