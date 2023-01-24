@@ -98,7 +98,8 @@ fn player_move(
 
         velocity = velocity.normalize_or_zero();
 
-        transform.translation += velocity * time.delta_seconds() * settings.speed * boost;
+        const SPEED: f32 = 2.0;
+        transform.translation += velocity * time.delta_seconds() * settings.speed * SPEED * boost;
     }
 }
 
@@ -134,9 +135,9 @@ fn player_look(
             for ev in state.reader_motion.iter(&motion) {
                 // Using smallest of height or width ensures equal vertical and horizontal sensitivity
                 let window_scale = window.height().min(window.width());
-
-                new_pitch -= (settings.sensitivity * ev.delta.y * window_scale).to_radians();
-                new_yaw -= (settings.sensitivity * ev.delta.x * window_scale).to_radians();
+                const SENSITIVITY: f32 = 0.2;
+                new_pitch -= (settings.sensitivity * SENSITIVITY * ev.delta.y * window_scale).to_radians();
+                new_yaw -= (settings.sensitivity * SENSITIVITY * ev.delta.x * window_scale).to_radians();
             }
             new_pitch = new_pitch.clamp(-1.54, 1.54);
 

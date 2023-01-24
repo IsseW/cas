@@ -5,6 +5,7 @@ struct VertexOutput {
     @location(0) pos: vec3<f32>,
     @location(1) world_position: vec3<f32>,
     @location(2) cam_pos: vec3<f32>,
+    @location(3) normal: vec3<f32>,
     @builtin(position) clip_position: vec4<f32>,
 };
 
@@ -33,6 +34,7 @@ fn vertex(
     out.world_position = world_position.xyz;
     out.cam_pos = cam_pos;
     out.clip_position = view.view_proj * world_position;
+    out.normal = normal;
     return out;
 }
 
@@ -109,10 +111,15 @@ fn frac1(v: f32) -> f32 {
     return (1.0 - v + floor(v));
 }
 
-fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
-    let clear = vec3(0.0);
+struct RayHit {
+    fpos: vec3<f32>,
+    vpos: vec3<f32>,
+    norm: vec3<f32>,
+    dist: f32,
+    state: u32,
+}
 
-    
+fn cast_ray(origin: vec3<f32>, dir: vec3<f32>, start_normal: vec3<f32>) -> RayHit {
     let step = sign(dir);
     let delta = min(step / dir, vec3(1.0 / EPSILON));
     var tmax = vec3(0.0);
@@ -132,21 +139,34 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
         tmax.z = delta.z * frac0(origin.z);
     }
     var pos = floor(origin);
+    var norm = start_normal;
+    var dist = 0.0;
 
     loop {
         let state = textureLoad(r_cells, vec3<i32>(pos)).x;
         if state > u32(0) {
-            return color(state, pos);
+            var result: RayHit;
+            result.fpos = origin + dir * dist;
+            result.vpos = pos;
+            result.norm = norm;
+            result.dist = dist;
+            result.state = state;
+
+            return result;
         }
         if tmax.x < tmax.y {
             if tmax.x < tmax.z {
                 pos.x = pos.x + step.x;
+                norm = vec3(step.x, 0.0, 0.0);
+                dist = tmax.x;
                 if pos.x < 0.0 || pos.x >= f32(r_rule.size) {
                     break;
                 }
                 tmax.x = tmax.x + delta.x;
             } else {
                 pos.z = pos.z + step.z;
+                norm = vec3(0.0, 0.0, step.z);
+                dist = tmax.z;
                 if pos.z < 0.0 || pos.z >= f32(r_rule.size) {
                     break;
                 }
@@ -155,12 +175,16 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
         } else {
             if tmax.y < tmax.z {
                 pos.y = pos.y + step.y;
+                norm = vec3(0.0, step.y, 0.0);
+                dist = tmax.y;
                 if pos.y < 0.0 || pos.y >= f32(r_rule.size) {
                     break;
                 }
                 tmax.y = tmax.y + delta.y;
             } else {
                 pos.z = pos.z + step.z;
+                dist = tmax.z;
+                norm = vec3(0.0, 0.0, step.z);
                 if pos.z < 0.0 || pos.z >= f32(r_rule.size) {
                     break;
                 }
@@ -168,20 +192,40 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
             }
         }
     }
-    return clear;
-    // var pos = origin;
-    // loop {
-    //     let ipos = vec3<i32>(pos);
-    //     let state = textureLoad(r_cells, ipos).x;
-    //     if state > u32(0) {
-    //         return color(state); // + (random_float(u32(ipos.z) * r_rule.size * r_rule.size + u32(ipos.y) * r_rule.size + u32(ipos.x)) - 0.5) * 0.05;
-    //     }
-    //     pos = pos + dir;
-    //     if is_outside(pos) {
-    //         break;
-    //     }
-    // }
-    // return clear;
+
+    let dist = min(tmax.x, min(tmax.y, tmax.z));
+    var result: RayHit;
+    result.fpos = origin + dir * dist;
+    result.vpos = pos;
+    result.norm = norm;
+    result.dist = dist;
+    result.state = u32(0);
+
+    return result;
+}
+
+
+fn trace_ray(origin: vec3<f32>, dir: vec3<f32>, start_normal: vec3<f32>) -> vec3<f32> {
+    let result = cast_ray(origin, dir, start_normal);
+    let light_dir = normalize(vec3<f32>(0.1, -1.0, 0.1));
+
+    if result.state != u32(0) {
+        let color = color(result.state, result.vpos);
+
+        var light: f32;
+
+        if cast_ray(result.fpos - light_dir * 0.01, -light_dir, -light_dir).state == u32(0) {
+            light = (1.0 + dot(light_dir, result.norm)) / 2.0;
+        } else {
+            light = 0.0;
+        }
+
+        let ambient = 0.3 + 0.7 * (1.0 + dot(vec3(0.0, -1.0, 0.0), result.norm)) / 2.0;
+
+        return color * (ambient * 0.3 + light * 0.7);
+    } else {
+        return vec3(0.0);
+    }
 }
 
 @fragment
@@ -190,7 +234,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     
     let fpos = in.pos.xyz * f32(r_rule.size);
     let p = normalize((in.pos.xyz - 0.5) * 2.0);
-    let res = cast_ray(fpos, dir);
+    let res = trace_ray(fpos, dir, -in.normal);
 
     return vec4(res, 1.0);
 }

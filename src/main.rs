@@ -4,7 +4,7 @@ mod gui;
 mod rtmaterial;
 mod rule;
 
-use bevy::{prelude::*, render::render_resource::*};
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*, render::render_resource::*};
 use ca_compute::{CAImage, CAPlugin};
 use fly_cam::{MovementSettings, PlayerPlugin};
 use gui::GuiPlugin;
@@ -20,16 +20,24 @@ fn main() {
     App::new()
         .add_startup_system(setup)
         .insert_resource(ClearColor(Color::BLACK))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                present_mode: bevy::window::PresentMode::Immediate,
-                title: "Cellular Automata".to_string(),
-                ..Default::default()
-            },
-            add_primary_window: true,
-            exit_on_all_closed: true,
-            close_when_requested: true,
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        present_mode: bevy::window::PresentMode::Immediate,
+                        title: "Cellular Automata".to_string(),
+                        ..Default::default()
+                    },
+                    add_primary_window: true,
+                    exit_on_all_closed: true,
+                    close_when_requested: true,
+                })
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..default()
+                }),
+        )
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .insert_resource(MovementSettings {
             sensitivity: START_SENSITIVITY,
             speed: START_SPEED,

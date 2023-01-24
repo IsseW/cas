@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 use bevy_egui::{
     egui::{self, panel::Side},
     EguiContext, EguiPlugin,
@@ -25,7 +28,6 @@ struct State {
     survival: String,
     birth: String,
     size: u32,
-    fps: f32,
 }
 
 fn egui_system(
@@ -35,7 +37,7 @@ fn egui_system(
     reinit: Option<ResMut<ReInit>>,
     movement: Option<ResMut<MovementSettings>>,
     meshes: Option<ResMut<Meshes>>,
-    time: Res<Time>,
+    diagnostics: Res<Diagnostics>,
     mut state: Local<State>,
 ) {
     egui::SidePanel::new(Side::Left, "settings").show(ctx.ctx_mut(), |ui| {
@@ -261,10 +263,12 @@ fn egui_system(
         }
 
         ui.heading("Info");
-        const SMOOTHING: f32 = 0.9;
-        if time.delta_seconds() > 0.0 {
-            state.fps = state.fps * SMOOTHING + (1.0 - SMOOTHING) * 1.0 / time.delta_seconds();
-        }
-        ui.label(format!("FPS: {}", state.fps as u32));
+        ui.label(format!(
+            "FPS: {}",
+            diagnostics
+                .get(FrameTimeDiagnosticsPlugin::FPS)
+                .and_then(|diagnostic| diagnostic.smoothed())
+                .unwrap_or(0.0)
+        ));
     });
 }
