@@ -19,12 +19,12 @@ fn vertex(
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
 ) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(position, 1.0);
-    let cam_pos = (mesh.inverse_transpose_model * vec4<f32>(view.world_position, 1.0)).xyz;
+    let world_position = mesh.model * vec4(position, 1.0);
+    let cam_pos = (mesh.inverse_transpose_model * vec4(view.world_position, 1.0)).xyz;
     var out: VertexOutput;
 
     let d = dot(normal, cam_pos - position);
-    if (d < 0.0) {
+    if d < 0.0 {
         out.pos = (cam_pos + 1.0) / 2.0;
     } else {
         out.pos = (position + 1.0) / 2.0;
@@ -110,23 +110,23 @@ fn frac1(v: f32) -> f32 {
 }
 
 fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
-    let clear = vec3<f32>(0.0, 0.0, 0.0);
+    let clear = vec3(0.0);
 
     
     let step = sign(dir);
-    let delta = min(step / dir, vec3<f32>(1.0 / EPSILON));
-    var tmax = vec3<f32>(0.0);
-    if (step.x > 0.0) {
+    let delta = min(step / dir, vec3(1.0 / EPSILON));
+    var tmax = vec3(0.0);
+    if step.x > 0.0 {
         tmax.x = delta.x * frac1(origin.x);
     } else {
         tmax.x = delta.x * frac0(origin.x);
     }
-    if (step.y > 0.0) {
+    if step.y > 0.0 {
         tmax.y = delta.y * frac1(origin.y);
     } else {
         tmax.y = delta.y * frac0(origin.y);
     }
-    if (step.z > 0.0) {
+    if step.z > 0.0 {
         tmax.z = delta.z * frac1(origin.z);
     } else {
         tmax.z = delta.z * frac0(origin.z);
@@ -135,33 +135,33 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
 
     loop {
         let state = textureLoad(r_cells, vec3<i32>(pos)).x;
-        if (state > u32(0)) {
+        if state > u32(0) {
             return color(state, pos);
         }
-        if (tmax.x < tmax.y) {
-            if (tmax.x < tmax.z) {
+        if tmax.x < tmax.y {
+            if tmax.x < tmax.z {
                 pos.x = pos.x + step.x;
-                if (pos.x < 0.0 || pos.x >= f32(r_rule.size)) {
+                if pos.x < 0.0 || pos.x >= f32(r_rule.size) {
                     break;
                 }
                 tmax.x = tmax.x + delta.x;
             } else {
                 pos.z = pos.z + step.z;
-                if (pos.z < 0.0 || pos.z >= f32(r_rule.size)) {
+                if pos.z < 0.0 || pos.z >= f32(r_rule.size) {
                     break;
                 }
                 tmax.z = tmax.z + delta.z;
             }
         } else {
-            if (tmax.y < tmax.z) {
+            if tmax.y < tmax.z {
                 pos.y = pos.y + step.y;
-                if (pos.y < 0.0 || pos.y >= f32(r_rule.size)) {
+                if pos.y < 0.0 || pos.y >= f32(r_rule.size) {
                     break;
                 }
                 tmax.y = tmax.y + delta.y;
             } else {
                 pos.z = pos.z + step.z;
-                if (pos.z < 0.0 || pos.z >= f32(r_rule.size)) {
+                if pos.z < 0.0 || pos.z >= f32(r_rule.size) {
                     break;
                 }
                 tmax.z = tmax.z + delta.z;
@@ -173,11 +173,11 @@ fn cast_ray(origin: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
     // loop {
     //     let ipos = vec3<i32>(pos);
     //     let state = textureLoad(r_cells, ipos).x;
-    //     if (state > u32(0)) {
+    //     if state > u32(0) {
     //         return color(state); // + (random_float(u32(ipos.z) * r_rule.size * r_rule.size + u32(ipos.y) * r_rule.size + u32(ipos.x)) - 0.5) * 0.05;
     //     }
     //     pos = pos + dir;
-    //     if (is_outside(pos)) {
+    //     if is_outside(pos) {
     //         break;
     //     }
     // }
@@ -192,5 +192,5 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let p = normalize((in.pos.xyz - 0.5) * 2.0);
     let res = cast_ray(fpos, dir);
 
-    return vec4<f32>(res, 1.0);
+    return vec4(res, 1.0);
 }

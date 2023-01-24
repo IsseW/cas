@@ -3,7 +3,7 @@
 var r_cells: texture_storage_3d<r8uint, read_write>;
 
 fn get_cell(pos: vec3<i32>, offset_x: i32, offset_y: i32, offset_z: i32) -> i32 {
-    let value: vec4<u32> = textureLoad(r_cells, pos + vec3<i32>(offset_x, offset_y, offset_z));
+    let value: vec4<u32> = textureLoad(r_cells, pos + vec3(offset_x, offset_y, offset_z));
     return i32(value.x);
 }
 
@@ -112,12 +112,12 @@ fn init(@builtin(global_invocation_id) pos: vec3<u32>) {
             var i = u32(3);
             loop {
                 let s = size / i;
-                if (size - s * i != u32(0)) {
+                if size - s * i != u32(0) {
                     alive = true;
                     break;
                 }
-                let p = abs(vec3<i32>((pos / s) - (pos / s) / u32(3) * u32(3)) - vec3<i32>(1));
-                if (p.x + p.y + p.z <= 1) {
+                let p = abs(vec3<i32>((pos / s) - (pos / s) / u32(3) * u32(3)) - vec3(1));
+                if p.x + p.y + p.z <= 1 {
                     break;
                 }
                 i = i * u32(3);
@@ -137,12 +137,12 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     let alive = count_alive(pos);
 
-    if (is_alive(cur) == 1) {
-        if (!should_survive(alive)) {
+    if is_alive(cur) == 1 {
+        if !should_survive(alive) {
             cur = cur - 1;
         }
-    } else if (cur == 0) {
-        if (should_birth(alive)) {
+    } else if cur == 0 {
+        if should_birth(alive) {
             cur = i32(r_rule.states);
         }
     } else {
