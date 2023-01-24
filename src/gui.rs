@@ -27,7 +27,7 @@ struct State {
     import: String,
     survival: String,
     birth: String,
-    size: u32,
+    // size: u32,
 }
 
 fn egui_system(
@@ -97,6 +97,8 @@ fn egui_system(
                 state.import.clear();
             }
 
+            // TODO: Fix resizing.
+            /*
             ui.label("Size");
             if state.size == 0 {
                 state.size = rule.size;
@@ -106,6 +108,7 @@ fn egui_system(
                 rule.size = state.size;
             }
             ui.end_row();
+            */
 
             ui.label("Survival");
             let survival = ui.text_edit_singleline(&mut state.survival);
