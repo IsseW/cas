@@ -52,6 +52,8 @@ impl ToString for Value {
                 let start = 26 - (i - 1);
                 if start == end {
                     elems.push(start.to_string());
+                } else if start + 1 == end {
+                    elems.push(format!("{},{}", start, end));
                 } else {
                     elems.push(format!("{}-{}", start, end));
                 }
@@ -288,13 +290,13 @@ pub struct RulePlugin;
 impl Plugin for RulePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Rule {
-            size: 243,
+            size: 243 * 3,
             spawn_mode: SpawnMode::MengerSponge,
-            survival: vec![4].into(),
-            birth: vec![4, 5, 6, 7].into(),
+            survival: vec![4,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26].into(),
+            birth: vec![4, 18,19,20,21,22,23,24].into(),
             states: 5,
             neighbor_mode: NeighborMode::Moore,
-            color_mode: ColorMode::StateLerp(Color::rgb_u8(176, 0, 188), Color::rgb_u8(99, 0, 104)),
+            color_mode: ColorMode::StateLerp(Color::rgb_u8(94, 25, 146), Color::rgb_u8(12, 227, 227)),
         })
         .add_plugin(ExtractResourcePlugin::<Rule>::default())
         .add_system(update_materials);
